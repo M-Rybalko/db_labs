@@ -23,5 +23,4 @@ git commit -m 'deploy'
 git remote add origin https://github.com/M-Rybalko/db_labs
 git push -u -f origin gh-pages
 
-
 cd -
