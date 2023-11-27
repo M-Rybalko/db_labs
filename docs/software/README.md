@@ -258,5 +258,182 @@ SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS;
 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS;
 ```
 
-## RESTfull сервіс для управління даними
+# RESTfull сервіс для управління даними
 
+## Головний файл для запуску сервера server.js
+
+``` js
+
+const express = require('express');
+const { getAllUsers, getUser, createUser, deleteUser, updateUser } = require('./controllers/UserController/userController');
+
+const app = express();
+const port = 3000;
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+app.get('/users/', getAllUsers);
+app.get('/user&id=:id/', getUser);
+app.post('/user/create/', createUser);
+app.put('/user/update&id=:id/', updateUser);
+app.delete('/user/delete&id=:id/', deleteUser);
+
+app.listen(port, () => {
+  console.log('Server running on port ' + port);
+});
+
+```
+
+## Файл зі створенням з'єднання з базою даних connection.js
+
+``` js
+
+'use strict'
+
+const mysql = require('mysql2')
+
+const connection = mysql.createConnection({
+  host: 'localhost',
+  user: 'root',
+  database: 'opinio',
+  password: '12345',
+})
+
+module.exports = connection;
+```
+
+## Файл з контролерами корситувача userController.js 
+
+``` js
+'use strict';
+
+const connection = require("../../connection/connection");
+const { incrementUserId, transformUpdateParams, validateUserCreation } = require('./utils/userUtils')
+
+const getAllUsers = async (req, res) => {
+  const script = `SELECT * FROM opinio.user`;
+  connection.execute(script, (err, results) => {
+    if (err) res.sendStatus(500);
+    if (results.length > 0) res.send(results);
+    else res.sendStatus(404);
+  });
+};
+
+const getUser = async (req, res) => {
+  const script = `SELECT * FROM opinio.user WHERE (id) = ${req.params.id}`;
+  connection.execute(script, (err, results) => {
+    if (err) res.sendStatus(500);
+    if (results.length > 0) res.send(results);
+    else res.sendStatus(404);
+  });
+};
+
+const createUser = async (req, res) => {
+  const id = await incrementUserId();
+  const msg = validateUserCreation(req.body)
+  if (msg) {
+    res.status(400).send(msg);
+    return;
+  }
+  const script = `INSERT INTO opinio.user (id, mail, password, name, age, gender) VALUES ('${id}', '${req.body["mail"]}', '${req.body["password"]}', '${req.body["name"]}', '${req.body["age"]}', '${req.body["gender"]}')`;
+  connection.execute(script, (err, results) => {
+    if (err) res.sendStatus(500);
+    if (results) {
+      res.send(results);
+    }
+    else res.sendStatus(404);
+  });
+}
+
+const deleteUser = async (req, res) => {
+  const script = `DELETE FROM opinio.user WHERE (id) = ${req.params.id}`;
+  connection.execute(script, (err, results) => {
+    if (err) res.sendStatus(500);
+    if (results) res.send(results);
+    else res.sendStatus(404);
+  });
+}
+
+const updateUser = async (req, res) => {
+  const updatedValues = transformUpdateParams(req.body);
+  const script = `UPDATE opinio.user SET ${updatedValues} WHERE (id) = '${req.params.id}'`;
+  if(updatedValues) {
+    connection.execute(script, (err, results) => {
+      if (err) res.sendStatus(500);
+      if (results) res.send(results);
+      else res.sendStatus(404);
+    });
+  } else res.status(400).send('Empty request body.');
+}
+
+module.exports = { getAllUsers, getUser, createUser, deleteUser, updateUser }
+```
+
+## Файл з утилітами для userController userUtils
+
+``` js
+
+'use strict';
+
+const userBody = require('../constants/requestBodies');
+const connection = require("../../../connection/connection");
+
+const incrementUserId = async () => {
+  return new Promise((resolve, reject) => {
+    const script = `SELECT MAX(id) FROM opinio.user`;
+    connection.execute(script, (error, result, fields) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(++result[0]['MAX(id)']);
+      }
+    });
+  });
+};
+
+const transformUpdateParams = (body) => {
+  const updateParams = Object.entries(body);
+  const transformedParams = [];
+  for (const param of updateParams) {
+    const [ key, value ] = param;
+    if (!(key === 'id')) {
+      const paramString = `\`${key}\` = '${value}'`;
+      transformedParams.push(paramString);
+    }
+  }
+  return transformedParams.join(', ');
+}
+
+const validateUserCreation = (body) => {
+  const missingParams = [];
+  for (const param of Object.keys(userBody)) {
+    if (!Object.keys(body).includes(param)) {
+      missingParams.push(param);
+    }
+  }
+
+  if (missingParams.length > 0) {
+    const message = `Wrong request body. Missing parameters: ${missingParams.join(', ')}`;
+    return message;
+  } else return;
+}
+
+module.exports = { incrementUserId, transformUpdateParams, validateUserCreation };
+```
+
+## Файл з прикладом об'єкту, потрібного для створення користувача requestBodies.js
+
+``` js
+
+'use strict';
+
+const userBody = {
+  mail: "",
+  password: "",
+  name: "",
+  age: "",
+  gender: "",
+}
+
+module.exports = userBody;
+```
