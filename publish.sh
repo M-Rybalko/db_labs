@@ -1,4 +1,4 @@
-#!/usr/bin/env
+#!/usr/bin/env sh
 
 # abort on errors
 set -e
@@ -13,13 +13,15 @@ cd docs/.vuepress/dist
 # echo 'www.example.com' > CNAME
 
 git init
+git checkout -b gh-pages
 git add -A
 git commit -m 'deploy'
 
 # if you are deploying to https://<USERNAME>.github.io
 # git push -f git@github.com:boldak/<USERNAME>.github.io.git master
-
 # if you are deploying to https://<USERNAME>.github.io/<REPO>
-git push -f https://github.com/M-Rybalko/db_labs master:gh-pages
+git remote add origin https://github.com/M-Rybalko/db_labs
+git push -u -f origin gh-pages
+
 
 cd -
